@@ -26,6 +26,7 @@ export default function HeaderBar() {
         <Link className="nav-link" to="/classes">کلاس‌ها</Link>
         <Link className="nav-link" to="/courses">لیست دوره‌ها</Link>
         <Link className="nav-link" to="/finance">مالی</Link>
+        <Link className="nav-link" to="/students">لیست شاگردان</Link>
         <Link className="nav-link" to="/chat">چت‌بات</Link>
         <Link className="nav-link" to="/messages">پیام‌های آماده</Link>
       </div>

@@ -13,6 +13,12 @@ export default function FinanceForm({ onSubmit }) {
   const [selectedClassId, setSelectedClassId] = useState('')
   useEffect(() => { setClasses(getClasses()) }, [])
   const setField = (k, v) => setF(x => ({ ...x, [k]: v }))
+  const sessionsRemaining = (cls) => {
+    const total = Number(cls?.sessionsCount || 0)
+    const held = (cls?.sessionDates || []).length
+    const makeups = Number(cls?.makeupsCount || 0)
+    return Math.max(0, total - (held + makeups))
+  }
   const calcRemainder = () => {
     const total = Number(f.totalFee || 0)
     const discAmt = Number(f.discountAmount || 0)
@@ -69,8 +75,8 @@ export default function FinanceForm({ onSubmit }) {
           <input className="form-control" type="number" value={f.totalFee} onChange={e => setField('totalFee', e.target.value)} />
         </div>
         <div>
-          <label className="form-label">جلسات باقی‌مانده (از کلاس)</label>
-          <input className="form-control" value={(classes.find(c => c.id === selectedClassId)?.sessionsCount ?? '')} readOnly />
+          <label className="form-label">جلسات باقی‌مانده (پویا)</label>
+          <input className="form-control" value={sessionsRemaining(classes.find(c => c.id === selectedClassId))} readOnly />
         </div>
         <div>
           <label className="form-label">تخفیف (مبلغ)</label>

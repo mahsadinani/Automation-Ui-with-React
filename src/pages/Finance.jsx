@@ -1,20 +1,18 @@
 import DataTable from '../components/DataTable'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import FinanceForm from '../components/FinanceForm'
+import { addFinanceRecord, getFinanceRecords, removeFinanceRecordAt, updateFinanceRecordAt, calculateRemainder } from '../services/finance'
 
 export default function Finance() {
   const cols = ['تاریخ', 'نام', 'نام کلاس', 'مدرس', 'کد کلاس', 'شهریه کل', 'تخفیف (مبلغ)', 'تخفیف (درصد)', 'پیش‌پرداخت', 'تاریخ پیش‌پرداخت', 'قسط‌ها', 'باقی‌مانده', 'وضعیت پرداخت']
 
-  const [records, setRecords] = useState([
-    {
-      date: '1403/08/22', name: 'علی رضایی', className: 'React مقدماتی', teacher: 'امین', classCode: 'RB-140309',
-      totalFee: 7500000, discountAmount: 500000, discountPercent: 0, prepayment: 1000000, prepaymentDate: '1403/08/22',
-      installments: [{ date: '1403/09/01', amount: 1000000 }, { date: '1403/10/01', amount: 1000000 }, { date: '1403/11/01', amount: 1000000 }],
-      remainderAmount: 4000000, paymentStatus: 'ثبت شد'
-    }
-  ])
+  const [records, setRecords] = useState([])
   const [editIndex, setEditIndex] = useState(null)
   const [newIns, setNewIns] = useState({ date: '', amount: '' })
+
+  useEffect(() => {
+    setRecords(getFinanceRecords())
+  }, [])
 
   const rows = records.map(r => [
     r.date, r.name, r.className, r.teacher, r.classCode, r.totalFee, r.discountAmount, r.discountPercent,
@@ -24,19 +22,20 @@ export default function Finance() {
   ])
 
   const onSubmit = (f) => {
-    const rec = {
+    const base = {
       ...f,
       totalFee: Number(f.totalFee || 0),
       discountAmount: Number(f.discountAmount || 0),
       discountPercent: Number(f.discountPercent || 0),
       prepayment: Number(f.prepayment || 0),
       installments: [],
-      remainderAmount: Number(f.remainderAmount || 0),
     }
-    setRecords(rs => [rec, ...rs])
+    const rec = { ...base, remainderAmount: calculateRemainder(base) }
+    addFinanceRecord(rec)
+    setRecords(getFinanceRecords())
   }
 
-  const onDelete = (idx) => setRecords(rs => rs.filter((_, i) => i !== idx))
+  const onDelete = (idx) => { removeFinanceRecordAt(idx); setRecords(getFinanceRecords()) }
   const onEdit = (idx) => setEditIndex(idx)
 
   const addInstallment = (e) => {
@@ -44,12 +43,12 @@ export default function Finance() {
     if (editIndex === null) return
     const amount = Number(newIns.amount || 0)
     if (!newIns.date || isNaN(amount) || amount <= 0) return alert('تاریخ و مبلغ قسط را درست وارد کنید')
-    setRecords(rs => rs.map((r, i) => {
-      if (i !== editIndex) return r
-      const updatedInstallments = [...(r.installments || []), { date: newIns.date, amount }]
-      const remainder = Math.max(0, Number(r.remainderAmount || 0) - amount)
-      return { ...r, installments: updatedInstallments, remainderAmount: remainder }
-    }))
+    const r = records[editIndex]
+    const updatedInstallments = [...(r.installments || []), { date: newIns.date, amount }]
+    const updated = { ...r, installments: updatedInstallments }
+    const remainder = calculateRemainder(updated)
+    updateFinanceRecordAt(editIndex, { installments: updatedInstallments, remainderAmount: remainder })
+    setRecords(getFinanceRecords())
     setNewIns({ date: '', amount: '' })
   }
 

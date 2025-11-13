@@ -7,6 +7,7 @@ import Finance from './pages/Finance.jsx'
 import Courses from './pages/Courses.jsx'
 import Chat from './pages/Chat.jsx'
 import Messages from './pages/Messages.jsx'
+import Students from './pages/Students.jsx'
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
       <Route path="/classes" element={<Classes />} />
       <Route path="/courses" element={<Courses />} />
       <Route path="/finance" element={<Finance />} />
+      <Route path="/students" element={<Students />} />
       <Route path="/chat" element={<Chat />} />
       <Route path="/messages" element={<Messages />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
