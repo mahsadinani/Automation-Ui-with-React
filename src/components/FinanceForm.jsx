@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { isValidJalali } from '../services/dateUtils'
+import { getClasses } from '../services/classes'
 
 export default function FinanceForm({ onSubmit }) {
   const [f, setF] = useState({
@@ -8,6 +9,9 @@ export default function FinanceForm({ onSubmit }) {
     prepayment: '', prepaymentDate: '',
     remainderAmount: '', paymentStatus: '',
   })
+  const [classes, setClasses] = useState([])
+  const [selectedClassId, setSelectedClassId] = useState('')
+  useEffect(() => { setClasses(getClasses()) }, [])
   const setField = (k, v) => setF(x => ({ ...x, [k]: v }))
   const calcRemainder = () => {
     const total = Number(f.totalFee || 0)
@@ -34,7 +38,23 @@ export default function FinanceForm({ onSubmit }) {
         </div>
         <div>
           <label className="form-label">نام کلاس</label>
-          <input className="form-control" value={f.className} onChange={e => setField('className', e.target.value)} />
+          <select className="form-control" value={selectedClassId} onChange={e => {
+            const id = e.target.value
+            setSelectedClassId(id)
+            const cls = classes.find(c => c.id === id)
+            if (cls) {
+              setF(x => ({
+                ...x,
+                className: cls.name || '',
+                teacher: cls.teacher || '',
+                classCode: cls.code || '',
+                totalFee: String(cls.fee ?? ''),
+              }))
+            }
+          }}>
+            <option value="">انتخاب کلاس</option>
+            {classes.map(c => (<option key={c.id} value={c.id}>{c.name}</option>))}
+          </select>
         </div>
         <div>
           <label className="form-label">مدرس</label>
@@ -47,6 +67,10 @@ export default function FinanceForm({ onSubmit }) {
         <div>
           <label className="form-label">شهریه کل دوره</label>
           <input className="form-control" type="number" value={f.totalFee} onChange={e => setField('totalFee', e.target.value)} />
+        </div>
+        <div>
+          <label className="form-label">جلسات باقی‌مانده (از کلاس)</label>
+          <input className="form-control" value={(classes.find(c => c.id === selectedClassId)?.sessionsCount ?? '')} readOnly />
         </div>
         <div>
           <label className="form-label">تخفیف (مبلغ)</label>

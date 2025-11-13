@@ -31,3 +31,7 @@ export function updateCourse(id, patch) {
   saveCourses(list)
   return list.find(c => c.id === id)
 }
+
+export function getCourseById(id) {
+  return getCourses().find(c => c.id === id)
+}
