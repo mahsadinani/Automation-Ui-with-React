@@ -1,0 +1,45 @@
+:root {
+  --bg: #0f172a;
+  --bg-soft: #1e293b;
+  --text: #e2e8f0;
+  --accent: #0ea5e9;
+  --accent-2: #22c55e;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; font-family: 'Vazirmatn', system-ui, sans-serif; }
+.container { max-width: 1200px; margin: 1rem auto; padding: 0 1rem; }
+
+.theme-light { background-color: #f8fafc; color: #0f172a; }
+.theme-dark { background-color: var(--bg); color: var(--text); }
+
+.navbar { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; background-color: var(--bg-soft); }
+.nav-links { display: flex; gap: 1rem; }
+.nav-link { color: var(--text); text-decoration: none; }
+.btn { border: none; padding: 0.5rem 0.75rem; border-radius: 8px; cursor: pointer; }
+.btn-accent { background-color: var(--accent); color: #fff; }
+.btn-secondary { background-color: #334155; color: var(--text); }
+.badge { background-color: #f59e0b; color: #1f2937; padding: 0.25rem 0.5rem; border-radius: 12px; }
+
+.grid { display: grid; gap: 1rem; }
+.grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+.card { background-color: var(--bg-soft); color: var(--text); border: 1px solid #334155; border-radius: 12px; }
+.card-header { padding: 0.75rem 1rem; border-bottom: 1px solid #334155; }
+.card-body { padding: 1rem 1.25rem; }
+.card-footer { padding: 0.5rem 1rem; border-top: 1px solid #334155; }
+
+.table { width: 100%; border-collapse: collapse; }
+.table th, .table td { border: 1px solid #334155; padding: 0.5rem; }
+.table-striped tbody tr:nth-child(odd) { background-color: #0f192c; }
+
+.form-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+.form-control, .form-select, textarea { width: 100%; padding: 0.5rem; border-radius: 8px; border: 1px solid #334155; background-color: #0f192c; color: var(--text); }
+.form-control::placeholder { color: #94a3b8; }
+.form-label { font-weight: 500; margin-bottom: 0.25rem; }
+
+.chat-box { display: flex; flex-direction: column; gap: 0.5rem; }
+.chat-messages { height: 220px; overflow: auto; padding: 0.75rem; border: 1px solid #334155; border-radius: 8px; background: #0f192c; }
+.chat-input { display: flex; gap: 0.5rem; }
+
+@media (max-width: 768px) { .grid-3 { grid-template-columns: 1fr; } .form-row { grid-template-columns: 1fr; } }
