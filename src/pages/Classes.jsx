@@ -2,8 +2,10 @@ import DataTable from '../components/DataTable'
 import { useEffect, useMemo, useState } from 'react'
 import { getMessages } from '../services/messages'
 import { getCourses, getCourseById } from '../services/courses'
+import { getTeachers } from '../services/teachers'
 import { addClass, getClasses, removeClass, updateClass } from '../services/classes'
 import { generateSessionDates, isValidJalali } from '../services/dateUtils'
+import { getStudents } from '../services/students'
 
 const WEEKDAYS = [
   { id: 0, label: 'شنبه' },
@@ -18,13 +20,17 @@ const WEEKDAYS = [
 export default function Classes() {
   const [classes, setClasses] = useState([])
   const [courses, setCourses] = useState([])
+  const [teachers, setTeachers] = useState([])
   const [editId, setEditId] = useState(null)
   const [msgForId, setMsgForId] = useState(null)
+  const [detailsForId, setDetailsForId] = useState(null)
+  const [studentsForId, setStudentsForId] = useState(null)
   const messagesRepo = useMemo(() => getMessages(), [])
 
   useEffect(() => {
     setClasses(getClasses())
     setCourses(getCourses())
+    setTeachers(getTeachers())
   }, [])
 
   const columns = ['نام کلاس', 'مدرس', 'ظرفیت', 'کد', 'شهریه', 'تعداد جلسات']
@@ -57,10 +63,12 @@ export default function Classes() {
   }
   const submitNewClass = (e) => {
     e.preventDefault()
-    if (!newCls.name) return alert('نام کلاس را وارد کنید')
-    if (!newCls.courseId) return alert('دوره مرتبط را انتخاب کنید')
+    if (!newCls.courseId) return alert('انتخاب دوره الزامی است')
+    const selectedCourse = getCourseById(newCls.courseId)
+    const finalName = (newCls.name?.trim && newCls.name.trim()) || (selectedCourse && selectedCourse.name) || ''
+    if (!finalName) return alert('نام کلاس یا دوره مشخص نیست')
     if (!isValidJalali(newCls.startDate)) return alert('تاریخ شروع صحیح نیست (YYYY/MM/DD)')
-    const created = addClass({ ...newCls, capacity: Number(newCls.capacity || 0), fee: Number(newCls.fee || 0), sessionsCount: Number(newCls.sessionsCount || 0) })
+    const created = addClass({ ...newCls, name: finalName, capacity: Number(newCls.capacity || 0), fee: Number(newCls.fee || 0), sessionsCount: Number(newCls.sessionsCount || 0) })
     setClasses(getClasses())
     setNewCls({ name: '', teacher: '', capacity: '', code: '', courseId: '', fee: '', sessionsCount: '', startDate: '', weekdays: [], sessionDates: [] })
     setEditId(created.id) // پس از افزودن، وارد حالت ویرایش می‌شویم
@@ -136,7 +144,10 @@ export default function Classes() {
             </div>
             <div>
               <label className="form-label">مدرس</label>
-              <input className="form-control" value={newCls.teacher} onChange={e => setField('teacher', e.target.value)} />
+              <select className="form-control" value={newCls.teacher} onChange={e => setField('teacher', e.target.value)}>
+                <option value="">انتخاب مدرس</option>
+                {teachers.map(t => (<option key={t.id} value={t.name}>{t.name}</option>))}
+              </select>
             </div>
             <div>
               <label className="form-label">کد کلاس</label>
@@ -192,7 +203,10 @@ export default function Classes() {
             {classes.map(c => (
               <div key={c.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem' }}>
                 <span style={{ cursor: 'pointer' }} onClick={() => setEditId(c.id)}>{c.name}</span>
-                <button className="btn btn-secondary" onClick={() => setEditId(c.id)}>ویرایش</button>
+                <button className="btn btn-secondary" onClick={() => setDetailsForId(prev => prev === c.id ? null : c.id)}>جزئیات</button>
+                <button className="btn btn-secondary" onClick={() => setStudentsForId(prev => prev === c.id ? null : c.id)}>لیست شاگردان</button>
+                <button className="btn btn-accent" onClick={() => setEditId(c.id)}>مدیریت جلسات</button>
+
                 <button className="btn btn-secondary" onClick={() => onSendMessage(c.id)}>ارسال پیام</button>
                 {msgForId === c.id ? (
                   <span style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -208,6 +222,62 @@ export default function Classes() {
                 ) : null}
                 <button className="btn" onClick={() => removeById(c.id)} style={{ background: '#ef4444', color: '#fff' }}>حذف</button>
               </div>
+            ))}
+            {classes.map(c => (
+              studentsForId === c.id ? (
+                <div key={'students-'+c.id} className="card" style={{ margin: '0.5rem 0', padding: '0.5rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <strong>لیست شاگردان کلاس {c.name}:</strong>
+                    <span className="badge">{getStudents().filter(s => s.classId === c.id).length} نفر</span>
+                  </div>
+                  {(() => {
+                    const list = getStudents().filter(s => s.classId === c.id)
+                    if (!list.length) return (<div style={{ color: '#6b7280', marginTop: '0.25rem' }}>شاگردی در این کلاس ثبت‌نام نشده است.</div>)
+                    return (
+                      <div className="table-responsive">
+                        <table className="table table-striped">
+                          <thead>
+                            <tr>
+                              <th>نام و نام‌خانوادگی</th>
+                              <th>تلفن</th>
+                              <th>ایمیل</th>
+                              <th>مبلغ پرداخت‌شده</th>
+                              <th>تاریخ ثبت‌نام</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {list.map(s => (
+                              <tr key={s.id}>
+                                <td>{s.name || '—'}</td>
+                                <td>{s.phone || '—'}</td>
+                                <td>{s.email || '—'}</td>
+                                <td>{s.paid ? `${s.paid.toLocaleString()} تومان` : '—'}</td>
+                                <td>{s.registerDate || '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )
+                  })()}
+                </div>
+              ) : null
+            ))}
+            {classes.map(c => (
+              detailsForId === c.id ? (
+                <div key={'details-'+c.id} className="card" style={{ margin: '0.5rem 0', padding: '0.5rem' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {(c.sessionDates || []).length ? (
+                      <>
+                        <strong>جلسات:</strong>
+                        {(c.sessionDates || []).map((d, i) => (<span key={i} className="badge">جلسه {i+1}: {d}</span>))}
+                      </>
+                    ) : (
+                      <span style={{ color: '#6b7280' }}>جلسه‌ای برای این کلاس تعریف نشده است.</span>
+                    )}
+                  </div>
+                </div>
+              ) : null
             ))}
           </div>
         </div>
@@ -288,3 +358,5 @@ export default function Classes() {
     </div>
   )
 }
+
+

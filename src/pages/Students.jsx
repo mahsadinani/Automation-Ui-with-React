@@ -1,8 +1,10 @@
-import DataTable from '../components/DataTable'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { addStudent, getStudents, removeStudent, resolveCourseName, resolveClassEndDate } from '../services/students'
 import { getCourses } from '../services/courses'
 import { getClasses } from '../services/classes'
+import StudentRegistrationForm from '../components/StudentRegistrationForm'
+import './Students.css'
+import StatusBadge from '../components/StatusBadge'
 import dayjs from 'dayjs'
 import jalaliday from 'jalaliday'
 
@@ -12,13 +14,10 @@ export default function Students() {
   const [students, setStudents] = useState([])
   const [courses, setCourses] = useState([])
   const [classes, setClasses] = useState([])
-  const [form, setForm] = useState({
-    faName: '', faLastName: '', enName: '', enLastName: '',
-    dob: '', birthPlace: '', idNumber: '', studentCode: '',
-    schoolCourseId: '', technicalCourseId: '', technicalHours: '',
-    classId: '', classEndDate: '', certificateDate: '', finalGrade: ''
-  })
-  const setField = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const [search, setSearch] = useState('')
+  const [sortKey, setSortKey] = useState('name')
+  const [sortDir, setSortDir] = useState('asc')
+  const [showAdvancedForm, setShowAdvancedForm] = useState(false)
 
   useEffect(() => {
     setStudents(getStudents())
@@ -26,136 +25,183 @@ export default function Students() {
     setClasses(getClasses())
   }, [])
 
-  // student code: derive from idNumber, strip leading '00'
-  useEffect(() => {
-    const raw = form.idNumber || ''
-    const code = raw.startsWith('00') ? raw.replace(/^00+/, '') : raw
-    setField('studentCode', code)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.idNumber])
+  const handleAdvancedSubmit = (studentData) => {
+    addStudent(studentData)
+    setStudents(getStudents())
+    setShowAdvancedForm(false)
+  }
 
-  const onSelectClass = (id) => {
-    setField('classId', id)
-    const end = resolveClassEndDate(id)
-    setField('classEndDate', end || '')
-    if (end) {
-      // certificateDate = end + 10 days (jalali display)
-      try {
-        const d = dayjs(end, { jalali: true }).calendar('jalali')
-        const g = dayjs({ year: d.year(), month: d.month(), date: d.date() }).add(10, 'day')
-        const cert = dayjs(g.toISOString()).calendar('jalali').locale('fa').format('YYYY/MM/DD')
-        setField('certificateDate', cert)
-      } catch {}
+  // منطق فیلتر، جستجو و مرتب‌سازی
+  const filtered = useMemo(() => {
+    let list = [...students]
+    // فیلتر بر اساس جستجو
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      list = list.filter(s =>
+        s.name?.toLowerCase().includes(q) ||
+        s.phone?.includes(q) ||
+        s.email?.toLowerCase().includes(q) ||
+        (s.courseClassId ? (() => {
+          const [courseId] = s.courseClassId.split('-')
+          return resolveCourseName(courseId).toLowerCase().includes(q)
+        })() : resolveCourseName(s.courseId).toLowerCase().includes(q)) ||
+        s.note?.toLowerCase().includes(q)
+      )
+    }
+    // مرتب‌سازی
+    list.sort((a, b) => {
+      let av, bv
+      switch (sortKey) {
+        case 'name':
+          av = a.name || ''
+          bv = b.name || ''
+          break
+        case 'course':
+          // برای فیلد ادغام شده دوره/کلاس
+          const courseA = resolveCourseName(a.courseClassId?.split('-')[0] || a.courseId)
+          const classA = classes.find(c => c.id === (a.courseClassId?.split('-')[1] || a.classId))?.name || ''
+          av = `${courseA} ${classA ? '- ' + classA : ''}`
+          
+          const courseB = resolveCourseName(b.courseClassId?.split('-')[0] || b.courseId)
+          const classB = classes.find(c => c.id === (b.courseClassId?.split('-')[1] || b.classId))?.name || ''
+          bv = `${courseB} ${classB ? '- ' + classB : ''}`
+          break
+
+        default:
+          av = a[sortKey] || ''
+          bv = b[sortKey] || ''
+      }
+      if (typeof av === 'string') av = av.toLowerCase()
+      if (typeof bv === 'string') bv = bv.toLowerCase()
+      if (av < bv) return sortDir === 'asc' ? -1 : 1
+      if (av > bv) return sortDir === 'asc' ? 1 : -1
+      return 0
+    })
+    return list
+  }, [students, search, sortKey, sortDir, classes])
+
+  const handleSort = (key) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortKey(key)
+      setSortDir('asc')
     }
   }
 
-  const onSelectTechnicalCourse = (id) => {
-    setField('technicalCourseId', id)
-    const course = courses.find(c => c.id === id)
-    setField('technicalHours', course?.hours || '')
-  }
-
-  const submit = (e) => {
-    e.preventDefault()
-    const payload = { ...form, technicalHours: Number(form.technicalHours || 0), finalGrade: Number(form.finalGrade || 0) }
-    addStudent(payload)
-    setStudents(getStudents())
-    setForm({ faName: '', faLastName: '', enName: '', enLastName: '', dob: '', birthPlace: '', idNumber: '', studentCode: '', schoolCourseId: '', technicalCourseId: '', technicalHours: '', classId: '', classEndDate: '', certificateDate: '', finalGrade: '' })
-  }
-
-  const columns = ['نام فارسی', 'نام‌خانوادگی فارسی', 'نام انگلیسی', 'نام‌خانوادگی انگلیسی', 'کد دانشجویی', 'دوره آموزشگاهی', 'دوره فنی', 'ساعات فنی', 'پایان کلاس', 'ثبت مدرک', 'نمره']
-  const rows = students.map(s => [
-    s.faName, s.faLastName, s.enName, s.enLastName, s.studentCode,
-    resolveCourseName(s.schoolCourseId), resolveCourseName(s.technicalCourseId), s.technicalHours,
-    s.classEndDate, s.certificateDate, s.finalGrade
-  ])
+  const columns = ['نام', 'تلفن', 'ایمیل', 'دوره/کلاس', 'تاریخ ثبت‌نام', 'یادداشت', 'عملیات']
 
   return (
     <div className="container">
       <h2 style={{ margin: '0 0 1rem' }}>لیست شاگردان</h2>
-      <div className="card">
-        <div className="card-header">افزودن شاگرد جدید</div>
-        <div className="card-body">
-          <form onSubmit={submit} className="form-row">
-            <div>
-              <label className="form-label">نام (فارسی)</label>
-              <input className="form-control" value={form.faName} onChange={e => setField('faName', e.target.value)} />
+      
+      <div className="registration-card">
+        <div className="registration-header">
+          <div className="registration-header-content">
+            <div className="registration-header-info">
+              <div className="registration-icon">🎯</div>
+              <div>
+                <h3 className="registration-title">ثبت‌نام دانش‌آموز جدید</h3>
+                <p className="registration-subtitle">فرم جامع ثبت‌نام با قابلیت‌های پیشرفته</p>
+              </div>
             </div>
-            <div>
-              <label className="form-label">نام‌خانوادگی (فارسی)</label>
-              <input className="form-control" value={form.faLastName} onChange={e => setField('faLastName', e.target.value)} />
+            <button 
+              type="button" 
+              className="btn-add-student"
+              onClick={() => setShowAdvancedForm(true)}
+            >
+              <span className="btn-icon">➕</span>
+              افزودن دانش‌آموز جدید
+            </button>
+          </div>
+        </div>
+        <div className="registration-body">
+          {showAdvancedForm ? (
+            <StudentRegistrationForm 
+              onSubmit={handleAdvancedSubmit}
+              onCancel={() => setShowAdvancedForm(false)}
+            />
+          ) : (
+            <div className="registration-welcome">
+              <div className="welcome-icon-container">
+                <div className="welcome-icon">📝</div>
+              </div>
+              <h4 className="welcome-title">آماده برای ثبت‌نام دانش‌آموز جدید؟</h4>
+              <p className="welcome-description">
+                با کلیک روی دکمه "افزودن دانش‌آموز جدید" فرم جامع ثبت‌نام را باز کنید و اطلاعات کامل دانش‌آموز را وارد کنید
+              </p>
+              <button 
+                className="btn-start-registration"
+                onClick={() => setShowAdvancedForm(true)}
+              >
+                <span className="btn-icon">🚀</span>
+                شروع ثبت‌نام جدید
+              </button>
             </div>
-            <div>
-              <label className="form-label">نام (انگلیسی)</label>
-              <input className="form-control" value={form.enName} onChange={e => setField('enName', e.target.value)} />
-            </div>
-            <div>
-              <label className="form-label">نام‌خانوادگی (انگلیسی)</label>
-              <input className="form-control" value={form.enLastName} onChange={e => setField('enLastName', e.target.value)} />
-            </div>
-            <div>
-              <label className="form-label">تاریخ تولد (شمسی)</label>
-              <input className="form-control" placeholder="1403/01/01" value={form.dob} onChange={e => setField('dob', e.target.value)} />
-            </div>
-            <div>
-              <label className="form-label">محل تولد</label>
-              <input className="form-control" value={form.birthPlace} onChange={e => setField('birthPlace', e.target.value)} />
-            </div>
-            <div>
-              <label className="form-label">شماره شناسنامه</label>
-              <input className="form-control" value={form.idNumber} onChange={e => setField('idNumber', e.target.value)} />
-            </div>
-            <div>
-              <label className="form-label">کد دانشجویی (اتوماتیک)</label>
-              <input className="form-control" value={form.studentCode} readOnly />
-            </div>
-            <div>
-              <label className="form-label">نام دوره آموزشگاهی</label>
-              <select className="form-control" value={form.schoolCourseId} onChange={e => setField('schoolCourseId', e.target.value)}>
-                <option value="">انتخاب دوره</option>
-                {courses.map(c => (<option key={c.id} value={c.id}>{c.name}</option>))}
-              </select>
-            </div>
-            <div>
-              <label className="form-label">نام دوره سازمان فنی</label>
-              <select className="form-control" value={form.technicalCourseId} onChange={e => onSelectTechnicalCourse(e.target.value)}>
-                <option value="">انتخاب دوره</option>
-                {courses.map(c => (<option key={c.id} value={c.id}>{c.name}</option>))}
-              </select>
-            </div>
-            <div>
-              <label className="form-label">تعداد ساعت‌های سازمان فنی</label>
-              <input className="form-control" type="number" value={form.technicalHours} onChange={e => setField('technicalHours', e.target.value)} />
-            </div>
-            <div>
-              <label className="form-label">کلاس مرتبط</label>
-              <select className="form-control" value={form.classId} onChange={e => onSelectClass(e.target.value)}>
-                <option value="">انتخاب کلاس</option>
-                {classes.map(c => (<option key={c.id} value={c.id}>{c.name}</option>))}
-              </select>
-            </div>
-            <div>
-              <label className="form-label">تاریخ اتمام کلاس</label>
-              <input className="form-control" value={form.classEndDate} readOnly />
-            </div>
-            <div>
-              <label className="form-label">تاریخ ثبت مدرک</label>
-              <input className="form-control" value={form.certificateDate} onChange={e => setField('certificateDate', e.target.value)} />
-            </div>
-            <div>
-              <label className="form-label">نمره نهایی</label>
-              <input className="form-control" type="number" value={form.finalGrade} onChange={e => setField('finalGrade', e.target.value)} />
-            </div>
-            <div style={{ gridColumn: '1/-1' }}>
-              <button className="btn btn-accent" type="submit">ثبت شاگرد</button>
-            </div>
-          </form>
+          )}
         </div>
       </div>
       <div className="card" style={{ marginTop: '1rem' }}>
-        <div className="card-header">لیست شاگردان</div>
-        <div className="card-body">
-          <DataTable columns={columns} rows={rows} />
+        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>لیست شاگردان</span>
+          <input
+            type="text"
+            placeholder="جستجو..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ padding: '.5rem', border: '1px solid #ced4da', borderRadius: 4 }}
+          />
+        </div>
+        <div className="card-body" style={{ padding: 0 }}>
+          <table className="table table-striped table-hover" style={{ margin: 0 }}>
+            <thead>
+              <tr>
+                {columns.map((col, idx) => {
+                  const sortKeys = ['name','phone','email','course','registerDate','note']
+                  const isSortable = idx < 6
+                  return (
+                    <th key={idx} style={{ cursor: isSortable ? 'pointer' : 'default', userSelect: 'none' }} onClick={() => isSortable && handleSort(sortKeys[idx])}>
+                      {col}
+                      {isSortable && sortKey === sortKeys[idx] && (
+                        <span style={{ marginRight: '.25rem' }}>{sortDir === 'asc' ? '▲' : '▼'}</span>
+                      )}
+                    </th>
+                  )
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr><td colSpan={columns.length} style={{ textAlign: 'center', padding: '2rem' }}>هیچ دانش‌آموزی یافت نشد</td></tr>
+              ) : (
+                filtered.map((s, idx) => (
+                  <tr key={s.id}>
+                    <td>{s.name}</td>
+                    <td>{s.phone}</td>
+                    <td>{s.email}</td>
+                    <td>{s.courseClassId ? (() => {
+                      const [courseId, classId] = s.courseClassId.split('-')
+                      const courseName = resolveCourseName(courseId)
+                      const className = classes.find(c => c.id === classId)?.name || ''
+                      return `${courseName} ${className ? '- ' + className : ''}`
+                    })() : `${resolveCourseName(s.courseId)} ${classes.find(c => c.id === s.classId)?.name ? '- ' + classes.find(c => c.id === s.classId)?.name : ''}`}</td>
+                    <td>{s.registerDate}</td>
+                    <td>{s.note || '-'}</td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <button style={{ padding: '.25rem .5rem', background: '#007bff', color: '#fff', border: 'none', borderRadius: 4, fontSize: '12px' }}>ویرایش</button>
+                        <button onClick={() => { removeStudent(s.id); setStudents(getStudents()) }} style={{ padding: '.25rem .5rem', background: '#dc3545', color: '#fff', border: 'none', borderRadius: 4, fontSize: '12px' }}>حذف</button>
+                        <button style={{ padding: '.25rem .5rem', background: '#28a745', color: '#fff', border: 'none', borderRadius: 4, fontSize: '12px' }}>اضافه به کلاس</button>
+                        <button style={{ padding: '.25rem .5rem', background: '#ffc107', color: '#000', border: 'none', borderRadius: 4, fontSize: '12px' }}>صدور گواهینامه</button>
+                        <button style={{ padding: '.25rem .5rem', background: '#17a2b8', color: '#fff', border: 'none', borderRadius: 4, fontSize: '12px' }}>ساخت رکورد مشابه</button>
+                        <button style={{ padding: '.25rem .5rem', background: '#6f42c1', color: '#fff', border: 'none', borderRadius: 4, fontSize: '12px' }}>پروفایل مالی</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

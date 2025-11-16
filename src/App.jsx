@@ -8,6 +8,8 @@ import Courses from './pages/Courses.jsx'
 import Chat from './pages/Chat.jsx'
 import Messages from './pages/Messages.jsx'
 import Students from './pages/Students.jsx'
+import Teachers from './pages/Teachers.jsx'
+import CourseList from './pages/CourseList.jsx'
 
 export default function App() {
   return (
@@ -17,11 +19,14 @@ export default function App() {
       <Route path="/customers" element={<Customers />} />
       <Route path="/classes" element={<Classes />} />
       <Route path="/courses" element={<Courses />} />
+      <Route path="/course-list" element={<CourseList />} />
       <Route path="/finance" element={<Finance />} />
       <Route path="/students" element={<Students />} />
+      <Route path="/teachers" element={<Teachers />} />
       <Route path="/chat" element={<Chat />} />
       <Route path="/messages" element={<Messages />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   )
 }
+
